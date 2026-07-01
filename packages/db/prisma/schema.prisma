@@ -1,0 +1,542 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  SOLO
+  AGENCY
+}
+
+enum SystemRole {
+  USER
+  SUPERADMIN
+}
+
+enum PlanId {
+  SOLO_BASIC
+  SOLO_PRO
+  AGENCY_BASIC
+  AGENCY_PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  type      UserType @default(SOLO)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  Membership[]
+  businesses   Business[]
+  invites      TeamInvite[]
+  subscription Subscription?
+  leads        Lead[]
+}
+
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  googleSub  String?    @unique
+  systemRole SystemRole @default(USER)
+  userType   UserType   @default(SOLO)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  memberships   Membership[]
+  profile       UserProfile?
+  refreshTokens RefreshToken[]
+  consents      UserConsent[]
+  auditLogs     AuditLog[]
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  organizationId       String             @unique
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId               PlanId             @default(SOLO_BASIC)
+  status               SubscriptionStatus @default(TRIALING)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model UserProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName      String?
+  phone            String?
+  avatarUrl        String?
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Business {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  type           String?
+  description    String?   @db.Text
+  targetAudience String?
+  budgetRange    String?
+  platforms      String[]  @default([])
+  marketingGoal  String?
+  location       String?
+  website        String?
+  logoUrl        String?
+  webhookSecret  String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  leads              Lead[]
+  customers          Customer[]
+  seoSiteProfile     SeoSiteProfile?
+  seoAuditRuns       SeoAuditRun[]
+  googleIntegration  GoogleIntegration?
+  dailyMetrics       DailyMetrics[]
+  socialConnections  SocialConnection[]
+  socialPosts        SocialPost[]
+  socialDataCaches   SocialDataCache[]
+  marketingPlans     MarketingPlan[]
+  contentItems       ContentItem[]
+  aiManualPostImages AiManualPostImage[]
+  aiVideoJobs        AiVideoJob[]
+  aiWebsiteJobs      AiWebsiteJob[]
+  crmConnections     CRMConnection[]
+
+  @@index([organizationId])
+  @@index([deletedAt])
+}
+
+model Lead {
+  id               String    @id @default(cuid())
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  businessId       String?
+  business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  status           String    @default("new")
+  source           String
+  sourceDetail     String?
+  contactFirstName String?
+  contactLastName  String?
+  contactEmail     String?
+  contactPhone     String?
+  contactCompany   String?
+  contactTitle     String?
+  contactLinkedIn  String?
+  companyName      String?
+  companyDomain    String?
+  companyIndustry  String?
+  companySize      String?
+  companyCountry   String?
+  companyCity      String?
+  metadata         Json?
+  tags             String[]  @default([])
+  leadScore        Int       @default(0)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  interactions Interaction[]
+  emailEvents  EmailEvent[]
+  customer     Customer?
+
+  @@index([businessId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([source])
+  @@index([deletedAt])
+}
+
+model Interaction {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String
+  content   String?  @db.Text
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  @@index([leadId])
+  @@index([timestamp])
+}
+
+model Customer {
+  id         String    @id @default(cuid())
+  leadId     String    @unique
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  name       String?
+  email      String?
+  phone      String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([businessId])
+}
+
+model SeoSiteProfile {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  siteUrl    String?
+  keywords   String[] @default([])
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model SeoAuditRun {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status      String    @default("pending")
+  score       Int?
+  report      Json?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model GoogleIntegration {
+  id               String    @id @default(cuid())
+  businessId       String    @unique
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  accessToken      String
+  refreshToken     String?
+  tokenExpiresAt   DateTime?
+  ga4PropertyId    String?
+  gscSiteUrl       String?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model DailyMetrics {
+  id             String    @id @default(cuid())
+  businessId     String?
+  business       Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  date           DateTime  @db.Date
+  leadsCreated   Int       @default(0)
+  leadsConverted Int       @default(0)
+  emailsSent     Int       @default(0)
+  emailsOpened   Int       @default(0)
+  emailsBounced  Int       @default(0)
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+
+  @@unique([businessId, date])
+  @@index([date])
+}
+
+model WebhookLog {
+  id          String    @id @default(cuid())
+  businessId  String?
+  source      String
+  eventType   String?
+  externalId  String?   @unique
+  payload     Json?
+  status      String    @default("received")
+  error       String?   @db.Text
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([businessId])
+}
+
+model EmailTemplate {
+  id         String   @id @default(cuid())
+  businessId String?
+  name       String
+  subject    String
+  htmlBody   String   @db.Text
+  textBody   String?  @db.Text
+  variables  String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SocialConnection {
+  id             String    @id @default(cuid())
+  businessId     String
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  platform       String
+  accountId      String?
+  accountName    String?
+  accessToken    String
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([businessId, platform])
+}
+
+model SocialPost {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  content     String    @db.Text
+  mediaUrl    String?
+  platforms   String[]  @default([])
+  status      String    @default("draft")
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  externalIds Json?
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model SocialDataCache {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  platform   String
+  cacheKey   String
+  data       Json
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([businessId, platform, cacheKey])
+  @@index([expiresAt])
+}
+
+model AiManualPostImage {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contentItemId String?
+  prompt        String?  @db.Text
+  mediaUrl      String?
+  platform      String?
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model AiVideoJob {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status     String   @default("queued")
+  provider   String
+  prompt     String   @db.Text
+  mediaUrl   String?
+  options    Json?
+  error      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model MarketingPlan {
+  id           String        @id @default(cuid())
+  businessId   String
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy     String?       @db.Text
+  contentPlan  Json?
+  offers       Json?
+  pricing      Json?
+  proposalText String?       @db.Text
+  status       String        @default("draft")
+  scheduledAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  contentItems ContentItem[]
+
+  @@index([businessId])
+}
+
+model ContentItem {
+  id              String         @id @default(cuid())
+  businessId      String
+  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  marketingPlanId String?
+  marketingPlan   MarketingPlan? @relation(fields: [marketingPlanId], references: [id], onDelete: SetNull)
+  idea            String?
+  hook            String?
+  description     String?        @db.Text
+  cta             String?
+  platform        String?
+  status          String         @default("draft")
+  mediaUrl        String?
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([businessId])
+  @@index([marketingPlanId])
+  @@index([status])
+}
+
+model AiWebsiteJob {
+  id                      String    @id @default(cuid())
+  businessId              String
+  business                Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status                  String    @default("queued")
+  prompt                  String?   @db.Text
+  manusTaskId             String?   @unique
+  resultHtml              String?   @db.Text
+  mediaUrl                String?
+  publicSlug              String?   @unique
+  previewUrl              String?
+  customDomain            String?
+  domainVerificationToken String?
+  customDomainVerifiedAt  DateTime?
+  mode                    String?
+  language                String?
+  error                   String?   @db.Text
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model EmailEvent {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  messageId String
+  type      String
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  @@index([leadId])
+  @@index([type, timestamp])
+  @@index([messageId])
+}
+
+model TeamInvite {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String       @default("member")
+  token          String       @unique @default(cuid())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([token])
+  @@index([email])
+}
+
+model UserConsent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consentType String
+  consentedAt DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  version     String
+
+  @@index([userId])
+  @@index([consentType])
+}
+
+model PlanFeature {
+  id      String @id @default(cuid())
+  planId  PlanId
+  feature String
+  limit   Int?
+
+  @@unique([planId, feature])
+  @@index([planId])
+}
+
+model CRMConnection {
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  adapter        String
+  accessToken    String
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([businessId, adapter])
+  @@index([businessId])
+}

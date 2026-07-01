@@ -1,0 +1,28 @@
+{
+  "name": "@spacode/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "prisma generate && tsc",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: spacode-postgres
+    environment:
+      POSTGRES_USER: spacode
+      POSTGRES_PASSWORD: spacode
+      POSTGRES_DB: spacode
+    ports:
+      - '5433:5432'
+    volumes:
+      - spacode_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U spacode -d spacode']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: spacode-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - spacode_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: spacode-backend-dev
+    ports:
+      - '3000:3000'
+      - '3010:3010'
+      - '3020:3020'
+      - '3030:3030'
+    env_file: .env
+    environment:
+      PORT: 3000
+      CORE_PORT: 3010
+      AI_PORT: 3020
+      SOCIAL_PORT: 3030
+      DATABASE_URL: postgresql://spacode:spacode@postgres:5432/spacode
+      REDIS_URL: redis://redis:6379
+      CORE_SERVICE_URL: http://localhost:3010
+      AI_SERVICE_URL: http://localhost:3020
+      SOCIAL_SERVICE_URL: http://localhost:3030
+    volumes:
+      - .:/app
+      - backend_dev_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  spacode_pg_data:
+  spacode_redis_data:
+  backend_dev_node_modules:
