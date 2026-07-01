@@ -12,8 +12,10 @@ COPY services ./services
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
+# Copy full pnpm workspace layout (not just root node_modules) so package bins like prisma resolve.
+COPY --from=deps /app ./
 COPY . .
+RUN npm install -g prisma@6.19.3
 RUN pnpm turbo run build
 
 FROM node:20-alpine AS runner
