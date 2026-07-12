@@ -34,6 +34,18 @@ vi.mock('../../lib/redis.js', () => ({
   }),
 }));
 
+const verifyIdToken = vi.fn();
+
+vi.mock('google-auth-library', () => ({
+  OAuth2Client: vi.fn().mockImplementation(() => ({
+    verifyIdToken,
+  })),
+}));
+
+vi.mock('../../config.js', () => ({
+  getConfig: vi.fn(() => ({ GOOGLE_CLIENT_ID: 'test-google-client-id' })),
+}));
+
 vi.mock('@spacode/utils', () => ({
   encrypt: (v: string) => v,
   decrypt: (v: string) => v,
@@ -50,7 +62,26 @@ vi.mock('@spacode/utils', () => ({
 }));
 
 import { prisma } from '@spacode/db';
+import { getConfig } from '../../config.js';
 import * as auth from './auth.service.js';
+
+function mockGooglePayload(email = 'google@example.com', sub = 'google-sub-123') {
+  verifyIdToken.mockResolvedValue({
+    getPayload: () => ({ email, sub }),
+  });
+}
+
+function mockIssueTokens(email: string, planId = PlanId.SOLO_BASIC) {
+  vi.mocked(prisma.membership.findFirst)
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({
+      organizationId: 'org-1',
+      role: 'owner',
+      user: { id: 'user-1', email, systemRole: 'USER', profile: null },
+      organization: { subscription: { planId } },
+    } as never);
+  vi.mocked(prisma.refreshToken.create).mockResolvedValue({} as never);
+}
 
 describe('auth.service', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -93,5 +124,64 @@ describe('auth.service', () => {
 
   it('requestOtp stores code in redis', async () => {
     await expect(auth.requestOtp('test@example.com')).resolves.toBeUndefined();
+  });
+
+  it('verifyGoogle creates user and returns tokens for new Google account', async () => {
+    mockGooglePayload();
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.user.create).mockResolvedValue({
+      id: 'user-1',
+      email: 'google@example.com',
+      googleSub: 'google-sub-123',
+    } as never);
+    mockIssueTokens('google@example.com', PlanId.SOLO_PRO);
+
+    const result = await auth.verifyGoogle('valid-id-token', PlanId.SOLO_PRO);
+    expect(verifyIdToken).toHaveBeenCalledWith({
+      idToken: 'valid-id-token',
+      audience: 'test-google-client-id',
+    });
+    expect(result.tokens.accessToken).toBe('access-token');
+    expect(result.user.email).toBe('google@example.com');
+  });
+
+  it('verifyGoogle links googleSub to existing OTP user', async () => {
+    mockGooglePayload();
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({
+      id: 'user-1',
+      email: 'google@example.com',
+      googleSub: null,
+    } as never);
+    vi.mocked(prisma.user.update).mockResolvedValue({
+      id: 'user-1',
+      email: 'google@example.com',
+      googleSub: 'google-sub-123',
+    } as never);
+    vi.mocked(prisma.membership.findFirst).mockResolvedValueOnce({
+      organizationId: 'org-1',
+      role: 'owner',
+      user: { id: 'user-1', email: 'google@example.com', systemRole: 'USER', profile: null },
+      organization: { subscription: { planId: PlanId.SOLO_BASIC } },
+    } as never);
+    vi.mocked(prisma.refreshToken.create).mockResolvedValue({} as never);
+
+    const result = await auth.verifyGoogle('valid-id-token');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { googleSub: 'google-sub-123' },
+    });
+    expect(result.tokens.accessToken).toBe('access-token');
+  });
+
+  it('verifyGoogle throws when Google OAuth is not configured', async () => {
+    vi.mocked(getConfig).mockReturnValueOnce({ GOOGLE_CLIENT_ID: '' } as never);
+    await expect(auth.verifyGoogle('valid-id-token')).rejects.toThrow('Google OAuth not configured');
+  });
+
+  it('verifyGoogle rejects token without email', async () => {
+    verifyIdToken.mockResolvedValue({
+      getPayload: () => ({ sub: 'google-sub-123' }),
+    });
+    await expect(auth.verifyGoogle('invalid-id-token')).rejects.toThrow('Invalid Google token');
   });
 });
