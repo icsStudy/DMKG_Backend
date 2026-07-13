@@ -1,5 +1,6 @@
 import { Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { QUEUE_NAMES } from '@spacode/types';
+import { processAiContentJob } from './workers/ai-content.worker.js';
 import { logger } from '@spacode/utils';
 import { getConfig } from './config.js';
 import { processEmailJob } from './workers/email.worker.js';
@@ -40,6 +41,7 @@ export function startAllWorkers(): Worker[] {
     createWorker(QUEUE_NAMES.SOCIAL_PUBLISH, processSocialPublishJob, 3),
     createWorker(QUEUE_NAMES.AI_VIDEO, processVideoJob, 2),
     createWorker(QUEUE_NAMES.AI_WEBSITE, processWebsiteJob, 2),
+    createWorker(QUEUE_NAMES.AI_CONTENT, processAiContentJob, 2),
     createWorker(QUEUE_NAMES.GOOGLE_SYNC, processGoogleSyncJob, 2),
     createWorker(QUEUE_NAMES.WEBHOOK_PROCESS, processWebhookJob, 5),
   );

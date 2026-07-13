@@ -4,7 +4,7 @@
 
 Dedicated HTTP service for social media integrations: OAuth callbacks, inbound webhooks (Meta, TikTok, LinkedIn), social account management, and post publishing. The gateway already routes traffic here; social domain logic belongs in this service, not in core-service.
 
-**Current state:** health-only stub. Only `GET /health` is implemented. All gateway-proxied routes below return 404 until handlers are added.
+**Current state:** Meta OAuth, organic publish (queue + SSE), scheduled posts, Meta Ads campaigns, WhatsApp templates, and webhook handlers (leadgen, WhatsApp, inbound) implemented.
 
 ## Port / process type
 

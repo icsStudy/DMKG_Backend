@@ -23,6 +23,10 @@ function toDto(lead: {
   contactCompany: string | null;
   status: string;
   source: string;
+  sourceDetail: string | null;
+  contentItemId: string | null;
+  socialPostId: string | null;
+  metaAdCampaignId: string | null;
   leadScore: number;
   metadata: unknown;
   tags: string[];
@@ -54,6 +58,10 @@ function toDto(lead: {
     score: lead.leadScore,
     notes,
     tags: lead.tags,
+    contentItemId: lead.contentItemId,
+    socialPostId: lead.socialPostId,
+    metaAdCampaignId: lead.metaAdCampaignId,
+    sourceDetail: lead.sourceDetail,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };
@@ -61,9 +69,14 @@ function toDto(lead: {
 
 export async function listLeads(
   businessId: string,
-  opts: { skip: number; limit: number; status?: string; search?: string },
+  opts: { skip: number; limit: number; status?: string; search?: string; contentItemId?: string },
 ) {
-  const where = { businessId, deletedAt: null, ...(opts.status && { status: opts.status }) };
+  const where = {
+    businessId,
+    deletedAt: null,
+    ...(opts.status && { status: opts.status }),
+    ...(opts.contentItemId && { contentItemId: opts.contentItemId }),
+  };
   const leads = await prisma.lead.findMany({
     where,
     orderBy: { createdAt: 'desc' },
@@ -97,8 +110,22 @@ export async function getLead(businessId: string, leadId: string): Promise<LeadD
 export async function createLead(
   businessId: string,
   _userId: string | undefined,
-  data: CreateLeadDto,
+  data: CreateLeadDto & {
+    contentItemId?: string;
+    socialPostId?: string;
+    metaAdCampaignId?: string;
+    sourceDetail?: string;
+    utm_content?: string;
+  },
 ): Promise<LeadDto> {
+  let contentItemId = data.contentItemId;
+  if (!contentItemId && data.utm_content) {
+    const bySlug = await prisma.contentItem.findFirst({
+      where: { trackingSlug: data.utm_content, businessId },
+    });
+    contentItemId = bySlug?.id ?? data.utm_content;
+  }
+
   const rawEmail = data.email ?? data.contactEmail;
   const lead = await prisma.lead.create({
     data: {
@@ -109,10 +136,21 @@ export async function createLead(
       contactPhone: data.phone ?? data.contactPhone,
       contactCompany: data.company ?? data.contactCompany,
       source: (data.source as string) ?? LeadSource.MANUAL,
+      sourceDetail: data.sourceDetail,
+      contentItemId,
+      socialPostId: data.socialPostId,
+      metaAdCampaignId: data.metaAdCampaignId,
       tags: data.tags ?? [],
       metadata: data.notes ? { notes: data.notes } : undefined,
     },
   });
+
+  if (contentItemId) {
+    await prisma.contentItem.update({
+      where: { id: contentItemId },
+      data: { leadCount: { increment: 1 } },
+    }).catch(() => undefined);
+  }
   await prisma.interaction.create({
     data: { leadId: lead.id, type: 'created', content: 'Lead created' },
   });
@@ -214,6 +252,10 @@ export async function handleContactForm(data: {
   name?: string;
   phone?: string;
   message?: string;
+  contentItemId?: string;
+  utm_content?: string;
+  source?: string;
+  sourceDetail?: string;
 }): Promise<LeadDto> {
   let businessId = data.businessId;
   if (!businessId && data.businessSlug) {
@@ -229,7 +271,10 @@ export async function handleContactForm(data: {
     email: data.email,
     name: data.name,
     phone: data.phone,
-    source: LeadSource.CONTACT_FORM,
+    source: data.source ?? LeadSource.CONTACT_FORM,
     notes: data.message,
+    contentItemId: data.contentItemId,
+    utm_content: data.utm_content,
+    sourceDetail: data.sourceDetail,
   });
 }

@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express from 'express';
 import { httpLogger, logger } from '@spacode/utils';
 import { config } from './config.js';

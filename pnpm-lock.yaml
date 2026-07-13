@@ -92,9 +92,15 @@ importers:
       '@spacode/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      bullmq:
+        specifier: ^5.34.5
+        version: 5.78.0
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.11.1
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
@@ -230,9 +236,15 @@ importers:
       '@spacode/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      bullmq:
+        specifier: ^5.34.5
+        version: 5.78.0
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.11.1
     devDependencies:
       '@types/express':
         specifier: ^4.17.21

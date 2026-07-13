@@ -4,7 +4,7 @@
 
 Dedicated HTTP service for AI-powered marketing features: content generation, landing pages, website builder, and third-party AI webhooks (Manus). The gateway already routes traffic here; domain logic belongs in this service, not in core-service.
 
-**Current state:** health-only stub. Only `GET /health` is implemented. All gateway-proxied routes below return 404 until handlers are added.
+**Current state:** marketing plans, content items, calendar, website builder with contact forms, and AI content queue implemented. Public landing pages served at `GET /p/:slug`.
 
 ## Port / process type
 

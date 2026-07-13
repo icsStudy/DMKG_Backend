@@ -1,50 +1,58 @@
+import { execSync } from 'child_process';
+import { join } from 'path';
 import express from 'express';
+import { logger } from '@spacode/utils';
+import { getConfig } from './config.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { gatewayContext } from './middleware/gateway-context.js';
+import { connectionsRouter, callbackRouter } from './modules/connections/connections.router.js';
+import { publishRouter } from './modules/publish/publish.router.js';
+import { metaAdsRouter } from './modules/meta-ads/meta-ads.router.js';
+import { whatsappRouter } from './modules/whatsapp/whatsapp.router.js';
+import { webhooksMgmtRouter, webhooksPublicRouter } from './modules/webhooks/webhooks.router.js';
 
-const PORT = Number(process.env.SOCIAL_PORT ?? process.env.PORT ?? 3030);
-const BUILD_REF = process.env.BUILD_REF ?? 'local';
+const cfg = getConfig();
+const PORT = cfg.SOCIAL_PORT;
+const BUILD_REF = cfg.BUILD_REF;
+
+function runMigrations(): void {
+  try {
+    const dbPkg = join(process.cwd(), '../../packages/db');
+    execSync('npx prisma migrate deploy', { cwd: dbPkg, stdio: 'inherit', env: process.env });
+  } catch (err) {
+    logger.warn({ err }, 'Migration deploy skipped or failed (dev ok)');
+  }
+}
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+app.use(gatewayContext);
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'social-service', buildRef: BUILD_REF });
 });
 
-app.get('/api/v1/webhooks/logs', (_req, res) => {
-  res.json({ success: true, data: [] });
-});
+app.use('/api/v1/social/callback', callbackRouter);
+app.use('/api/v1/social', connectionsRouter);
+app.use('/api/v1/social', publishRouter);
+app.use('/api/v1/social/meta', metaAdsRouter);
+app.use('/api/v1/businesses/:id/whatsapp', whatsappRouter);
+app.use('/api/v1/businesses/:id/meta', metaAdsRouter);
+app.use('/api/v1/webhooks', webhooksPublicRouter);
+app.use('/api/v1/webhooks', webhooksMgmtRouter);
 
-app.post('/api/v1/social/publish', (req, res) => {
-  const body = req.body as { platforms?: string[]; content?: string };
-  const platforms = body.platforms?.length ? body.platforms : ['meta'];
+app.use(errorHandler);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+async function main() {
+  runMigrations();
+  app.listen(PORT, () => {
+    logger.info(`social-service listening on :${PORT}`);
+  });
+}
 
-  let index = 0;
-  const sendNext = (): void => {
-    if (index >= platforms.length) {
-      res.end();
-      return;
-    }
-    const platform = platforms[index];
-    const event = {
-      postId: 'e2e-stub-post',
-      platform,
-      status: 'published',
-      message: 'E2E stub publish',
-    };
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
-    index += 1;
-    setTimeout(sendNext, 30);
-  };
-
-  sendNext();
-});
-
-app.listen(PORT, () => {
-  console.log(`social-service listening on :${PORT}`);
+main().catch((err) => {
+  logger.error(err);
+  process.exit(1);
 });
 
 export { app };

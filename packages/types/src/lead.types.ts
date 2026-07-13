@@ -5,12 +5,14 @@ export type LeadSource =
   | 'webhook'
   | 'manual'
   | 'crm_sync'
+  | 'contact_form'
   | 'facebook'
   | 'instagram'
   | 'tiktok'
   | 'linkedin'
   | 'twitter'
-  | 'youtube';
+  | 'youtube'
+  | 'whatsapp';
 
 export interface CreateLeadPayload {
   source: LeadSource;
@@ -41,6 +43,7 @@ export interface LeadFilters {
   status?: LeadStatus;
   source?: LeadSource;
   businessId?: string;
+  contentItemId?: string;
   search?: string;
   sort?: string;
   order?: 'asc' | 'desc';
@@ -58,6 +61,10 @@ export interface LeadDto {
   score: number;
   notes: string | null;
   tags: string[];
+  contentItemId?: string | null;
+  socialPostId?: string | null;
+  metaAdCampaignId?: string | null;
+  sourceDetail?: string | null;
   createdAt: string;
   updatedAt: string;
 }

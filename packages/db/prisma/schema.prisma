@@ -143,8 +143,11 @@ model Business {
   socialConnections  SocialConnection[]
   socialPosts        SocialPost[]
   socialDataCaches   SocialDataCache[]
-  marketingPlans     MarketingPlan[]
-  contentItems       ContentItem[]
+  marketingPlans           MarketingPlan[]
+  contentItems             ContentItem[]
+  metaAdCampaigns          MetaAdCampaign[]
+  whatsAppTemplates        WhatsAppTemplate[]
+  marketingAutomationRuns  MarketingAutomationRun[]
   aiManualPostImages AiManualPostImage[]
   aiVideoJobs        AiVideoJob[]
   aiWebsiteJobs      AiWebsiteJob[]
@@ -179,6 +182,12 @@ model Lead {
   metadata         Json?
   tags             String[]  @default([])
   leadScore        Int       @default(0)
+  contentItemId    String?
+  contentItem      ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+  socialPostId     String?
+  socialPost       SocialPost? @relation(fields: [socialPostId], references: [id], onDelete: SetNull)
+  metaAdCampaignId String?
+  metaAdCampaign   MetaAdCampaign? @relation(fields: [metaAdCampaignId], references: [id], onDelete: SetNull)
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -191,6 +200,9 @@ model Lead {
   @@index([organizationId])
   @@index([status])
   @@index([source])
+  @@index([contentItemId])
+  @@index([socialPostId])
+  @@index([metaAdCampaignId])
   @@index([deletedAt])
 }
 
@@ -343,22 +355,26 @@ model SocialConnection {
 }
 
 model SocialPost {
-  id          String    @id @default(cuid())
-  businessId  String
-  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  content     String    @db.Text
-  mediaUrl    String?
-  platforms   String[]  @default([])
-  status      String    @default("draft")
-  scheduledAt DateTime?
-  publishedAt DateTime?
-  externalIds Json?
-  error       String?   @db.Text
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String       @id @default(cuid())
+  businessId    String
+  business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contentItemId String?      @unique
+  contentItem   ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+  content       String       @db.Text
+  mediaUrl      String?
+  platforms     String[]     @default([])
+  status        String       @default("draft")
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  externalIds   Json?
+  error         String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  leads         Lead[]
 
   @@index([businessId])
   @@index([status])
+  @@index([scheduledAt])
 }
 
 model SocialDataCache {
@@ -417,33 +433,109 @@ model MarketingPlan {
   proposalText String?       @db.Text
   status       String        @default("draft")
   scheduledAt  DateTime?
+  horizonDays  Int?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   contentItems ContentItem[]
+  automationRuns MarketingAutomationRun[]
 
   @@index([businessId])
 }
 
 model ContentItem {
-  id              String         @id @default(cuid())
-  businessId      String
-  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  marketingPlanId String?
-  marketingPlan   MarketingPlan? @relation(fields: [marketingPlanId], references: [id], onDelete: SetNull)
-  idea            String?
-  hook            String?
-  description     String?        @db.Text
-  cta             String?
-  platform        String?
-  status          String         @default("draft")
-  mediaUrl        String?
-  scheduledAt     DateTime?
-  publishedAt     DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                  String            @id @default(cuid())
+  businessId          String
+  business            Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  marketingPlanId     String?
+  marketingPlan       MarketingPlan?    @relation(fields: [marketingPlanId], references: [id], onDelete: SetNull)
+  idea                String?
+  hook                String?
+  description         String?           @db.Text
+  cta                 String?
+  platform            String?
+  status              String            @default("draft")
+  mediaUrl            String?
+  trackingSlug        String?           @unique
+  leadCount           Int               @default(0)
+  whatsappTemplateId  String?
+  whatsappTemplate    WhatsAppTemplate? @relation(fields: [whatsappTemplateId], references: [id], onDelete: SetNull)
+  scheduledAt         DateTime?
+  publishedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  socialPost          SocialPost?
+  metaAdCampaign      MetaAdCampaign?
+  leads               Lead[]
 
   @@index([businessId])
   @@index([marketingPlanId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([trackingSlug])
+}
+
+model MetaAdCampaign {
+  id              String       @id @default(cuid())
+  businessId      String
+  business        Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contentItemId   String?      @unique
+  contentItem     ContentItem? @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+  metaCampaignId  String?
+  metaAdSetId     String?
+  metaAdId        String?
+  name            String
+  objective       String       @default("OUTCOME_LEADS")
+  status          String       @default("draft")
+  dailyBudget     Int?
+  currency        String       @default("ILS")
+  startedAt       DateTime?
+  pausedAt        DateTime?
+  externalIds     Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  leads           Lead[]
+
+  @@index([businessId])
+  @@index([status])
+  @@index([metaCampaignId])
+}
+
+model WhatsAppTemplate {
+  id              String        @id @default(cuid())
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  metaTemplateId  String?
+  name            String
+  language        String        @default("he")
+  category        String        @default("MARKETING")
+  status          String        @default("PENDING")
+  components      Json?
+  rejectionReason String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  contentItems    ContentItem[]
+
+  @@unique([businessId, name, language])
+  @@index([businessId])
+  @@index([status])
+}
+
+model MarketingAutomationRun {
+  id              String        @id @default(cuid())
+  businessId      String
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  marketingPlanId String?
+  marketingPlan   MarketingPlan? @relation(fields: [marketingPlanId], references: [id], onDelete: SetNull)
+  horizonDays     Int
+  status          String        @default("queued")
+  progress        Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  error           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([businessId])
   @@index([status])
 }
 

@@ -1,4 +1,4 @@
-export type Platform = 'meta' | 'tiktok' | 'linkedin' | 'twitter' | 'youtube';
+export type Platform = 'meta' | 'tiktok' | 'linkedin' | 'twitter' | 'youtube' | 'whatsapp';
 
 export interface PublishPayload {
   postId: string;
@@ -20,6 +20,7 @@ export interface PublishPostDto {
   platforms: Platform[];
   mediaUrls?: string[];
   scheduledAt?: string;
+  contentItemId?: string;
 }
 
 export interface PublishProgressEvent {

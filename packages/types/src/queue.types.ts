@@ -5,6 +5,7 @@ export const QUEUE_NAMES = {
   SOCIAL_PUBLISH: 'social-publish',
   AI_VIDEO: 'ai-video',
   AI_WEBSITE: 'ai-website',
+  AI_CONTENT: 'ai-content',
   GOOGLE_SYNC: 'google-sync',
   WEBHOOK_PROCESS: 'webhook-process',
 } as const;
@@ -67,6 +68,13 @@ export interface WebhookProcessJobPayload {
   logId: string;
 }
 
+export interface AiContentJobPayload {
+  runId: string;
+  businessId: string;
+  marketingPlanId: string;
+  horizonDays: 30 | 90;
+}
+
 export type LeadScoreJob = LeadScoreJobPayload;
 export type EmailJob = EmailJobPayload;
 export type BulkEmailJob = BulkEmailJobPayload;
@@ -75,3 +83,4 @@ export type AiVideoJob = VideoGenerateJobPayload;
 export type AiWebsiteJob = WebsiteGenerateJobPayload;
 export type GoogleSyncJob = GoogleSyncJobPayload;
 export type WebhookProcessJob = WebhookProcessJobPayload;
+export type AiContentJob = AiContentJobPayload;

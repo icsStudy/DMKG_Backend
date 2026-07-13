@@ -17,6 +17,7 @@ leadsRouter.get(
       limit: req.pagination!.limit,
       status: req.query.status as never,
       search: req.query.search as string | undefined,
+      contentItemId: req.query.contentItemId as string | undefined,
     });
     sendPaginated(res, items, total, req.pagination!.page, req.pagination!.limit);
   }),

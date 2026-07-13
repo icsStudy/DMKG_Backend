@@ -43,6 +43,12 @@ export function startCronJobs(): void {
     if (count > 0) logger.warn({ count }, 'Marked stale publishes as failed');
   });
 
+  cron.schedule('* * * * *', async () => {
+    const { enqueueDueScheduledPosts } = await import('./workers/social-publish.worker.js');
+    const count = await enqueueDueScheduledPosts();
+    if (count > 0) logger.info({ count }, 'Enqueued scheduled social posts');
+  });
+
   cron.schedule('0 */6 * * *', async () => {
     const count = await prisma.googleIntegration.count();
     logger.info({ count }, 'Google sync cron tick');

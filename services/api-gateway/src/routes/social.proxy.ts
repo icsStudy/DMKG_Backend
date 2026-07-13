@@ -27,8 +27,23 @@ socialRouter.post(
   webhooksLimiter,
   socialProxy as RequestHandler,
 );
+socialRouter.get('/api/v1/webhooks/meta/whatsapp', webhooksLimiter, socialProxy as RequestHandler);
+socialRouter.post('/api/v1/webhooks/meta/whatsapp', webhooksLimiter, socialProxy as RequestHandler);
+socialRouter.post(
+  '/api/v1/webhooks/inbound/:businessId',
+  webhooksLimiter,
+  socialProxy as RequestHandler,
+);
 
 // Authenticated social + webhook management
 socialRouter.get('/api/v1/webhooks/logs', ...chain(requireAuth));
 socialRouter.post('/api/v1/webhooks/retry/:id', ...chain(requireAuth));
 socialRouter.use('/api/v1/social', ...chain(requireAuth, defaultLimiter));
+socialRouter.use(
+  '/api/v1/businesses/:id/whatsapp',
+  ...chain(requireAuth, defaultLimiter),
+);
+socialRouter.use(
+  '/api/v1/businesses/:id/meta',
+  ...chain(requireAuth, defaultLimiter),
+);
