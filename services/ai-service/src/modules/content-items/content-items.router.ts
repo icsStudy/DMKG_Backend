@@ -33,6 +33,14 @@ contentItemsRouter.get(
 );
 
 contentItemsRouter.post(
+  '/import',
+  asyncHandler(async (req, res) => {
+    const { csv } = req.body as { csv: string };
+    success(res, await svc.importContentItemsFromCsv(req.business!.id, csv), 201);
+  }),
+);
+
+contentItemsRouter.post(
   '/generate',
   asyncHandler(async (req, res) => {
     success(res, await svc.generateContentItem(req.business!.id, req.body), 201);

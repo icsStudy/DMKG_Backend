@@ -10,6 +10,7 @@ import { publishRouter } from './modules/publish/publish.router.js';
 import { metaAdsRouter } from './modules/meta-ads/meta-ads.router.js';
 import { whatsappRouter } from './modules/whatsapp/whatsapp.router.js';
 import { webhooksMgmtRouter, webhooksPublicRouter } from './modules/webhooks/webhooks.router.js';
+import { inboxRouter } from './modules/inbox/inbox.router.js';
 
 const cfg = getConfig();
 const PORT = cfg.SOCIAL_PORT;
@@ -35,6 +36,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1/social/callback', callbackRouter);
 app.use('/api/v1/social', connectionsRouter);
 app.use('/api/v1/social', publishRouter);
+app.use('/api/v1/social', inboxRouter);
 app.use('/api/v1/social/meta', metaAdsRouter);
 app.use('/api/v1/businesses/:id/whatsapp', whatsappRouter);
 app.use('/api/v1/businesses/:id/meta', metaAdsRouter);

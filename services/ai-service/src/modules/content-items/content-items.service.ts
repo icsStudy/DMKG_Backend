@@ -114,6 +114,9 @@ export async function updateContentItem(
       whatsappTemplateId: data.whatsappTemplateId ?? undefined,
       scheduledAt:
         data.scheduledAt === null ? null : data.scheduledAt ? new Date(data.scheduledAt) : undefined,
+      evergreenEnabled: data.evergreenEnabled,
+      evergreenIntervalDays: data.evergreenIntervalDays ?? undefined,
+      maxReposts: data.maxReposts ?? undefined,
     },
     include: { socialPost: { select: { id: true } }, metaAdCampaign: { select: { id: true } } },
   });
@@ -124,6 +127,41 @@ export async function deleteContentItem(businessId: string, itemId: string) {
   const existing = await prisma.contentItem.findFirst({ where: { id: itemId, businessId } });
   if (!existing) throw Errors.notFound('Content item not found');
   await prisma.contentItem.delete({ where: { id: itemId } });
+}
+
+export async function importContentItemsFromCsv(businessId: string, csv: string) {
+  const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw Errors.validation('CSV must have header and at least one row');
+
+  const header = lines[0]!.split(',').map((h) => h.trim().toLowerCase());
+  const contentIdx = header.indexOf('content');
+  const scheduledIdx = header.indexOf('scheduledat');
+  const platformIdx = header.indexOf('platform');
+  const mediaIdx = header.indexOf('mediaurl');
+
+  if (contentIdx === -1) throw Errors.validation('CSV must include content column');
+
+  const created = [];
+  for (const line of lines.slice(1)) {
+    const cols = line.split(',').map((c) => c.trim());
+    const content = cols[contentIdx];
+    if (!content) continue;
+
+    const item = await prisma.contentItem.create({
+      data: {
+        businessId,
+        description: content,
+        platform: platformIdx >= 0 ? cols[platformIdx] : 'meta',
+        mediaUrl: mediaIdx >= 0 ? cols[mediaIdx] : undefined,
+        scheduledAt: scheduledIdx >= 0 && cols[scheduledIdx] ? new Date(cols[scheduledIdx]!) : undefined,
+        status: ContentItemStatus.SCHEDULED,
+        trackingSlug: createTrackingSlug(),
+      },
+    });
+    created.push(item.id);
+  }
+
+  return { imported: created.length, ids: created };
 }
 
 export async function getContentItemLeads(businessId: string, itemId: string) {

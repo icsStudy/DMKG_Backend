@@ -2,9 +2,10 @@ import type { Job } from 'bullmq';
 import { prisma, AiVideoStatus } from '@spacode/db';
 import type { VideoGenerateJobPayload } from '@spacode/types';
 import { logger } from '@spacode/utils';
+import { generateVideo } from '../lib/video-provider.js';
 
 export async function processVideoJob(job: Job<VideoGenerateJobPayload>): Promise<void> {
-  const { jobId, provider, prompt, trim } = job.data;
+  const { jobId, provider, trim } = job.data;
 
   await prisma.aiVideoJob.update({
     where: { id: jobId },
@@ -12,18 +13,22 @@ export async function processVideoJob(job: Job<VideoGenerateJobPayload>): Promis
   });
 
   try {
-    if (process.env.FAL_API_KEY || process.env.REPLICATE_API_TOKEN) {
-      logger.info({ provider, prompt: prompt.slice(0, 80) }, 'Would call video provider');
-    }
-    if (trim) logger.info({ trim }, 'Would trim with ffmpeg');
+    const mediaUrl = await generateVideo(job.data);
+    if (trim) logger.info({ trim }, 'Video trim not applied in v1');
 
     await prisma.aiVideoJob.update({
       where: { id: jobId },
-      data: {
-        status: AiVideoStatus.READY,
-        mediaUrl: 'https://res.cloudinary.com/demo/video/upload/sample.mp4',
-      },
+      data: { status: AiVideoStatus.READY, mediaUrl },
     });
+
+    const record = await prisma.aiVideoJob.findUnique({ where: { id: jobId } });
+    const contentItemId = (record?.options as { contentItemId?: string } | null)?.contentItemId;
+    if (contentItemId && mediaUrl) {
+      await prisma.contentItem.update({
+        where: { id: contentItemId },
+        data: { mediaUrl },
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Video generation failed';
     await prisma.aiVideoJob.update({

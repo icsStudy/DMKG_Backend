@@ -129,6 +129,7 @@ model Business {
   location       String?
   website        String?
   logoUrl        String?
+  brandColors    Json?
   webhookSecret  String?
   deletedAt      DateTime?
   createdAt      DateTime  @default(now())
@@ -152,6 +153,10 @@ model Business {
   aiVideoJobs        AiVideoJob[]
   aiWebsiteJobs      AiWebsiteJob[]
   crmConnections     CRMConnection[]
+  creativeScores     CreativeScore[]
+  competitorInsights CompetitorInsight[]
+  socialMessages     SocialMessage[]
+  bioLink            BioLink?
 
   @@index([organizationId])
   @@index([deletedAt])
@@ -367,6 +372,8 @@ model SocialPost {
   scheduledAt   DateTime?
   publishedAt   DateTime?
   externalIds   Json?
+  firstComment  String?      @db.Text
+  firstCommentPostedAt DateTime?
   error         String?      @db.Text
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -461,6 +468,11 @@ model ContentItem {
   whatsappTemplate    WhatsAppTemplate? @relation(fields: [whatsappTemplateId], references: [id], onDelete: SetNull)
   scheduledAt         DateTime?
   publishedAt         DateTime?
+  evergreenEnabled    Boolean           @default(false)
+  evergreenIntervalDays Int?
+  maxReposts          Int?
+  repostCount         Int               @default(0)
+  lastRepostedAt      DateTime?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   socialPost          SocialPost?
@@ -631,4 +643,56 @@ model CRMConnection {
 
   @@unique([businessId, adapter])
   @@index([businessId])
+}
+
+model CreativeScore {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contentItemId String
+  score         Int
+  breakdown     Json
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+  @@index([contentItemId])
+}
+
+model CompetitorInsight {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  competitorUrl String
+  platform      String?
+  analysis      Json
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model SocialMessage {
+  id         String    @id @default(cuid())
+  businessId String
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  platform   String
+  type       String
+  externalId String    @unique
+  fromName   String?
+  content    String    @db.Text
+  repliedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([businessId, platform])
+}
+
+model BioLink {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  slug       String   @unique
+  blocks     Json
+  theme      Json?
+  published  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

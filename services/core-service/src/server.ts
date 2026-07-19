@@ -16,6 +16,7 @@ import { analyticsRouter } from './modules/analytics/analytics.router.js';
 import { emailRouter } from './modules/email/email.router.js';
 import { seoRouter } from './modules/seo/seo.router.js';
 import { crmRouter } from './modules/crm/crm.router.js';
+import { bioLinkRouter, publicBioRouter } from './modules/bio-link/bio-link.router.js';
 
 const cfg = getConfig();
 const PORT = cfg.CORE_PORT ?? cfg.PORT ?? 3010;
@@ -66,6 +67,8 @@ app.use('/api/v1/analytics', analyticsRouter);
 app.use('/api/v1/email', emailRouter);
 app.use('/api/v1/seo', seoRouter);
 app.use('/api/v1/crm', crmRouter);
+app.use('/api/v1/businesses/:id/bio-link', bioLinkRouter);
+app.use('/public/bio', publicBioRouter);
 
 app.use(errorHandler);
 

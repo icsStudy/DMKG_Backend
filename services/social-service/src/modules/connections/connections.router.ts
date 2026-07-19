@@ -29,6 +29,34 @@ connectionsRouter.get(
   }),
 );
 
+connectionsRouter.get(
+  '/connect/tiktok',
+  asyncHandler(async (req, res) => {
+    success(res, { url: svc.getTikTokConnectUrl(req.business!.id) });
+  }),
+);
+
+connectionsRouter.get(
+  '/connect/linkedin',
+  asyncHandler(async (req, res) => {
+    success(res, { url: svc.getLinkedInConnectUrl(req.business!.id) });
+  }),
+);
+
+connectionsRouter.get(
+  '/connect/twitter',
+  asyncHandler(async (req, res) => {
+    success(res, { url: svc.getTwitterConnectUrl(req.business!.id) });
+  }),
+);
+
+connectionsRouter.get(
+  '/connect/youtube',
+  asyncHandler(async (req, res) => {
+    success(res, { url: svc.getYouTubeConnectUrl(req.business!.id) });
+  }),
+);
+
 connectionsRouter.delete(
   '/connections/:platform',
   asyncHandler(async (req, res) => {
@@ -62,6 +90,46 @@ callbackRouter.get(
     const code = req.query.code as string;
     const state = req.query.state as string;
     const redirect = await svc.handleWhatsAppCallback(code, state);
+    res.redirect(redirect);
+  }),
+);
+
+callbackRouter.get(
+  '/tiktok',
+  asyncHandler(async (req, res) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const redirect = await svc.handleTikTokCallback(code, state);
+    res.redirect(redirect);
+  }),
+);
+
+callbackRouter.get(
+  '/linkedin',
+  asyncHandler(async (req, res) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const redirect = await svc.handleLinkedInCallback(code, state);
+    res.redirect(redirect);
+  }),
+);
+
+callbackRouter.get(
+  '/twitter',
+  asyncHandler(async (req, res) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const redirect = await svc.handleTwitterCallback(code, state);
+    res.redirect(redirect);
+  }),
+);
+
+callbackRouter.get(
+  '/youtube',
+  asyncHandler(async (req, res) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const redirect = await svc.handleYouTubeCallback(code, state);
     res.redirect(redirect);
   }),
 );

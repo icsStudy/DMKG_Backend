@@ -23,6 +23,9 @@ function chain(...handlers: RequestHandler[]): RequestHandler[] {
 
 export const coreRouter = Router();
 
+// Public bio pages
+coreRouter.get('/public/bio/:slug', coreProxy as RequestHandler);
+
 // Auth — no JWT
 coreRouter.use('/api/v1/auth', authLimiter, coreProxy as RequestHandler);
 

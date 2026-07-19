@@ -7,6 +7,7 @@ export function getConfig() {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
     MANUS_API_KEY: process.env.MANUS_API_KEY ?? '',
     CORE_SERVICE_URL: process.env.CORE_SERVICE_URL ?? 'http://localhost:3010',
+    FAL_API_KEY: process.env.FAL_API_KEY ?? '',
     PUBLIC_API_URL: process.env.PUBLIC_API_URL ?? 'http://localhost:3000',
   };
 }

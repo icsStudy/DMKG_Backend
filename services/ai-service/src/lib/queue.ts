@@ -3,6 +3,7 @@ import {
   QUEUE_NAMES,
   type AiContentJobPayload,
   type WebsiteGenerateJobPayload,
+  type VideoGenerateJobPayload,
 } from '@spacode/types';
 import { getConfig } from '../config.js';
 
@@ -14,6 +15,7 @@ const connection = { connection: getConnection() };
 
 export const aiContentQueue = new Queue<AiContentJobPayload>(QUEUE_NAMES.AI_CONTENT, connection);
 export const aiWebsiteQueue = new Queue<WebsiteGenerateJobPayload>(QUEUE_NAMES.AI_WEBSITE, connection);
+export const aiVideoQueue = new Queue<VideoGenerateJobPayload>(QUEUE_NAMES.AI_VIDEO, connection);
 
 export async function enqueueAiContent(job: AiContentJobPayload): Promise<void> {
   await aiContentQueue.add('generate', job, { removeOnComplete: 50 });
@@ -21,4 +23,8 @@ export async function enqueueAiContent(job: AiContentJobPayload): Promise<void> 
 
 export async function enqueueAiWebsite(job: WebsiteGenerateJobPayload): Promise<void> {
   await aiWebsiteQueue.add('generate', job, { removeOnComplete: 50 });
+}
+
+export async function enqueueAiVideo(job: VideoGenerateJobPayload): Promise<void> {
+  await aiVideoQueue.add('generate', job, { removeOnComplete: 50 });
 }

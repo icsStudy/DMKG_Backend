@@ -77,6 +77,7 @@ export async function createCampaign(
 
   let contentText = data.name;
   let link: string | undefined;
+  let imageUrl: string | undefined;
   if (data.contentItemId) {
     const item = await prisma.contentItem.findFirst({
       where: { id: data.contentItemId, businessId },
@@ -84,6 +85,7 @@ export async function createCampaign(
     if (item) {
       contentText = item.description ?? item.hook ?? data.name;
       link = item.trackingSlug ? `https://spacode.co.il/p/${item.trackingSlug}` : undefined;
+      imageUrl = item.mediaUrl ?? undefined;
     }
   }
 
@@ -113,6 +115,7 @@ export async function createCampaign(
       link_data: {
         message: contentText,
         link: link ?? 'https://spacode.co.il',
+        ...(imageUrl && { picture: imageUrl }),
         call_to_action: { type: 'LEARN_MORE' },
       },
     },

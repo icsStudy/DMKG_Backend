@@ -164,6 +164,90 @@ export async function handleInboundWebhook(
   return { received: true };
 }
 
+export function verifyTikTokChallenge(
+  mode: string | undefined,
+  token: string | undefined,
+  challenge: string | undefined,
+) {
+  if (mode === 'subscribe' && token === getConfig().TIKTOK_WEBHOOK_VERIFY_TOKEN) {
+    return challenge ?? '';
+  }
+  throw Errors.unauthorized('Invalid verify token');
+}
+
+export async function handleTikTokLeadgen(body: Record<string, unknown>) {
+  const leadId = (body.lead_id as string) ?? (body.leadgen_id as string) ?? `tiktok-${Date.now()}`;
+  const businessId = body.business_id as string | undefined;
+
+  await createWebhookLog(
+    'tiktok_leadgen',
+    'leadgen',
+    {
+      name: body.name ?? body.full_name,
+      email: body.email,
+      phone: body.phone ?? body.phone_number,
+      message: body.message,
+      source: LeadSource.TIKTOK,
+    },
+    businessId,
+    leadId,
+  );
+
+  return { received: true };
+}
+
+export async function handleLinkedInLeadgen(body: Record<string, unknown>) {
+  const leadId = (body.id as string) ?? `linkedin-${Date.now()}`;
+
+  await createWebhookLog(
+    'linkedin_leadgen',
+    'leadgen',
+    {
+      name: body.firstName ? `${body.firstName} ${body.lastName ?? ''}`.trim() : body.name,
+      email: body.email,
+      phone: body.phone,
+      source: LeadSource.LINKEDIN,
+    },
+    body.businessId as string | undefined,
+    leadId,
+  );
+
+  return { received: true };
+}
+
+export async function handleMetaComment(body: Record<string, unknown>) {
+  const entry = (body.entry as { id?: string; changes?: { value?: { item?: string; message?: string; from?: { name?: string } } }[] }[])?.[0];
+  const change = entry?.changes?.[0];
+  const value = change?.value;
+  if (!value?.item || !value.message) return { received: true };
+
+  let businessId: string | undefined;
+  if (entry?.id) {
+    const conn = await prisma.socialConnection.findFirst({
+      where: { accountId: entry.id, platform: 'meta' },
+    });
+    businessId = conn?.businessId;
+  }
+
+  if (businessId) {
+    await prisma.socialMessage.upsert({
+      where: { externalId: value.item },
+      create: {
+        businessId,
+        platform: 'meta',
+        type: 'comment',
+        externalId: value.item,
+        fromName: value.from?.name,
+        content: value.message,
+      },
+      update: { content: value.message },
+    });
+  }
+
+  await createWebhookLog('meta_comment', 'comment', value as object, businessId, value.item);
+  return { received: true };
+}
+
 export async function handleTemplateStatusUpdate(body: Record<string, unknown>) {
   const entry = (body.entry as { changes?: { value?: { message_template_name?: string; message_template_language?: string; event?: string; reason?: string } }[] }[])?.[0];
   const value = entry?.changes?.[0]?.value;

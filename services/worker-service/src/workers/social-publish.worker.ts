@@ -1,56 +1,24 @@
 import type { Job } from 'bullmq';
-import { ContentItemStatus, prisma, SocialPostStatus, SocialPlatform } from '@spacode/db';
+import { ContentItemStatus, prisma, SocialPostStatus } from '@spacode/db';
 import type { SocialPublishJobPayload } from '@spacode/types';
-import { decrypt } from '@spacode/utils';
 import { getRedis, publishProgressChannel } from '../lib/redis.js';
 import { getConfig } from '../config.js';
+import {
+  connectionPlatformKey,
+  pollTikTokInFlight,
+  postMetaFirstComment,
+  publishToPlatform,
+} from '../lib/platform-publish.js';
 
-const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION ?? 'v21.0';
-
-async function graphPost(path: string, token: string, body: Record<string, unknown>) {
-  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, access_token: token }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ id: string }>;
-}
-
-async function publishPlatform(
-  platform: string,
-  businessId: string,
-  content: string,
-  mediaUrl?: string,
-): Promise<string> {
-  const conn = await prisma.socialConnection.findUnique({
-    where: { businessId_platform: { businessId, platform: SocialPlatform.META } },
-  });
-  if (!conn) throw new Error(`No connection for ${platform}`);
-
-  const token = decrypt(conn.accessToken);
-  const meta = conn.metadata as { pageId?: string } | null;
-  const pageId = meta?.pageId ?? conn.accountId;
-  if (!pageId) throw new Error('No Meta page configured');
-
-  if (platform === 'instagram' && mediaUrl) {
-    const igAccounts = await fetch(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${pageId}?fields=instagram_business_account&access_token=${token}`,
-    ).then((r) => r.json() as Promise<{ instagram_business_account?: { id: string } }>);
-    const igId = igAccounts.instagram_business_account?.id;
-    if (!igId) throw new Error('No Instagram business account linked');
-    const container = await graphPost(`/${igId}/media`, token, {
-      image_url: mediaUrl,
-      caption: content,
-    });
-    const published = await graphPost(`/${igId}/media_publish`, token, {
-      creation_id: container.id,
-    });
-    return published.id;
-  }
-
-  const result = await graphPost(`/${pageId}/feed`, token, { message: content, ...(mediaUrl && { link: mediaUrl }) });
-  return result.id;
+function hasAnyCredentials(): boolean {
+  return !!(
+    process.env.META_APP_ID ||
+    process.env.TIKTOK_CLIENT_KEY ||
+    process.env.LINKEDIN_CLIENT_ID ||
+    process.env.X_CLIENT_ID ||
+    process.env.YOUTUBE_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID
+  );
 }
 
 export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>): Promise<void> {
@@ -60,7 +28,8 @@ export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>)
 
   const redis = getRedis();
   const channel = publishProgressChannel(postId);
-  const platformResults: Record<string, { status: string; externalId?: string; error?: string }> = {};
+  const platformResults: Record<string, { status: string; externalId?: string; error?: string; publishId?: string }> =
+    (post.externalIds as Record<string, { status: string; externalId?: string; error?: string; publishId?: string }>) ?? {};
 
   await prisma.socialPost.update({
     where: { id: postId },
@@ -78,10 +47,12 @@ export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>)
     await emit({ postId, platform, status: 'pending' });
     await emit({ postId, platform, status: 'uploading' });
     try {
+      const connKey = connectionPlatformKey(platform);
       const conn = await prisma.socialConnection.findUnique({
-        where: { businessId_platform: { businessId, platform: platform === 'instagram' ? SocialPlatform.META : platform } },
+        where: { businessId_platform: { businessId, platform: connKey } },
       });
-      if (!conn && !process.env.META_APP_ID) {
+
+      if (!conn && (!hasAnyCredentials() || process.env.E2E_STUB_PUBLISH === '1')) {
         const externalId = `stub-${platform}-${Date.now()}`;
         platformResults[platform] = { status: 'published', externalId };
         anySuccess = true;
@@ -90,10 +61,31 @@ export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>)
       }
       if (!conn) throw new Error(`No connection for ${platform}`);
 
-      const externalId = await publishPlatform(platform, businessId, post.content, post.mediaUrl ?? undefined);
-      platformResults[platform] = { status: 'published', externalId };
+      const externalId = await publishToPlatform(
+        platform,
+        conn,
+        post.content,
+        post.mediaUrl ?? undefined,
+      );
+
+      const isTikTokPending =
+        platform === 'tiktok' && externalId.startsWith('v_') === false && !externalId.match(/^\d+$/);
+
+      platformResults[platform] = {
+        status: 'published',
+        externalId,
+        ...(platform === 'tiktok' && isTikTokPending ? { publishId: externalId } : {}),
+      };
       anySuccess = true;
       await emit({ postId, platform, status: 'published' });
+
+      if (post.firstComment && (platform === 'meta' || platform === 'facebook')) {
+        try {
+          await postMetaFirstComment(conn, externalId, post.firstComment);
+        } catch {
+          /* first comment is best-effort */
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Publish failed';
       platformResults[platform] = { status: 'failed', error: message };
@@ -116,6 +108,7 @@ export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>)
       publishedAt: anySuccess ? new Date() : null,
       externalIds: platformResults as object,
       error: anyFailed && !anySuccess ? 'All platforms failed' : null,
+      firstCommentPostedAt: post.firstComment && anySuccess ? new Date() : null,
     },
   });
 
@@ -125,6 +118,7 @@ export async function processSocialPublishJob(job: Job<SocialPublishJobPayload>)
       data: {
         status: anySuccess ? ContentItemStatus.PUBLISHED : ContentItemStatus.FAILED,
         publishedAt: anySuccess ? new Date() : null,
+        lastRepostedAt: anySuccess ? new Date() : undefined,
       },
     });
   }
@@ -136,13 +130,47 @@ export async function sweepStalePublishes(): Promise<number> {
     where: { status: SocialPostStatus.PUBLISHING, updatedAt: { lt: cutoff } },
     take: 50,
   });
+
+  let swept = 0;
   for (const post of stale) {
-    await prisma.socialPost.update({
-      where: { id: post.id },
-      data: { status: SocialPostStatus.FAILED, error: 'Publish timed out' },
-    });
+    const externalIds = post.externalIds as Record<
+      string,
+      { publishId?: string; status?: string; externalId?: string }
+    > | null;
+    let resolved = false;
+
+    if (externalIds) {
+      for (const [platform, result] of Object.entries(externalIds)) {
+        if (platform === 'tiktok' && result.publishId && !result.externalId?.match(/^\d+$/)) {
+          const conn = await prisma.socialConnection.findUnique({
+            where: { businessId_platform: { businessId: post.businessId, platform: 'tiktok' } },
+          });
+          if (conn) {
+            const finalId = await pollTikTokInFlight(conn, result.publishId);
+            if (finalId) {
+              externalIds[platform] = { ...result, externalId: finalId, status: 'published' };
+              await prisma.socialPost.update({
+                where: { id: post.id },
+                data: { status: SocialPostStatus.PUBLISHED, publishedAt: new Date(), externalIds },
+              });
+              resolved = true;
+              swept++;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!resolved) {
+      await prisma.socialPost.update({
+        where: { id: post.id },
+        data: { status: SocialPostStatus.FAILED, error: 'Publish timed out' },
+      });
+      swept++;
+    }
   }
-  return stale.length;
+  return swept;
 }
 
 export async function enqueueDueScheduledPosts(): Promise<number> {
@@ -180,4 +208,65 @@ export async function enqueueDueScheduledPosts(): Promise<number> {
 
   await queue.close();
   return due.length;
+}
+
+export async function enqueueEvergreenReposts(): Promise<number> {
+  const now = new Date();
+  const items = await prisma.contentItem.findMany({
+    where: {
+      evergreenEnabled: true,
+      evergreenIntervalDays: { not: null },
+      socialPost: { isNot: null },
+    },
+    take: 20,
+  });
+
+  let enqueued = 0;
+  const { Queue } = await import('bullmq');
+  const { QUEUE_NAMES } = await import('@spacode/types');
+  const queue = new Queue(QUEUE_NAMES.SOCIAL_PUBLISH, {
+    connection: { url: getConfig().REDIS_URL, maxRetriesPerRequest: null },
+  });
+
+  for (const item of items) {
+    if (!item.evergreenIntervalDays) continue;
+    const last = item.lastRepostedAt ?? item.publishedAt ?? item.createdAt;
+    const nextDue = new Date(last.getTime() + item.evergreenIntervalDays * 86400000);
+    if (nextDue > now) continue;
+    if (item.maxReposts != null && item.repostCount >= item.maxReposts) continue;
+
+    const existingPost = await prisma.socialPost.findFirst({
+      where: { contentItemId: item.id },
+    });
+    if (!existingPost) continue;
+
+    const newPost = await prisma.socialPost.create({
+      data: {
+        businessId: item.businessId,
+        contentItemId: null,
+        content: existingPost.content,
+        mediaUrl: existingPost.mediaUrl ?? item.mediaUrl,
+        platforms: existingPost.platforms,
+        status: SocialPostStatus.SCHEDULED,
+        scheduledAt: now,
+      },
+    });
+
+    await queue.add('publish', {
+      postId: newPost.id,
+      businessId: newPost.businessId,
+      platforms: newPost.platforms,
+      content: newPost.content,
+      mediaUrl: newPost.mediaUrl ?? undefined,
+    });
+
+    await prisma.contentItem.update({
+      where: { id: item.id },
+      data: { repostCount: { increment: 1 }, lastRepostedAt: now },
+    });
+    enqueued++;
+  }
+
+  await queue.close();
+  return enqueued;
 }

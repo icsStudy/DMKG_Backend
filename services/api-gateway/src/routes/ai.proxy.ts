@@ -29,6 +29,22 @@ aiRouter.use(
   '/api/v1/businesses/:id/website',
   ...chain(requireAuth, defaultLimiter),
 );
+aiRouter.use(
+  '/api/v1/businesses/:id/creative-images',
+  ...chain(requireAuth, defaultLimiter),
+);
+aiRouter.use(
+  '/api/v1/businesses/:id/creative-videos',
+  ...chain(requireAuth, defaultLimiter),
+);
+aiRouter.use(
+  '/api/v1/businesses/:id/competitors',
+  ...chain(requireAuth, defaultLimiter),
+);
+aiRouter.use(
+  '/api/v1/businesses/:id/brand',
+  ...chain(requireAuth, defaultLimiter),
+);
 
 // Manus webhook (proxied to ai-service)
 aiRouter.post('/api/v1/webhooks/manus', aiProxy as RequestHandler);

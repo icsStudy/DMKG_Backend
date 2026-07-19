@@ -13,5 +13,23 @@ export function getConfig() {
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? 'spacode-wa-verify',
     META_WABA_CONFIG_ID: process.env.META_WABA_CONFIG_ID ?? '',
     PUBLIC_API_URL: process.env.PUBLIC_API_URL ?? 'http://localhost:3000',
+    TIKTOK_CLIENT_KEY: process.env.TIKTOK_CLIENT_KEY ?? '',
+    TIKTOK_CLIENT_SECRET: process.env.TIKTOK_CLIENT_SECRET ?? '',
+    TIKTOK_REDIRECT_URI:
+      process.env.TIKTOK_REDIRECT_URI ?? 'http://localhost:3000/api/v1/social/callback/tiktok',
+    TIKTOK_WEBHOOK_VERIFY_TOKEN: process.env.TIKTOK_WEBHOOK_VERIFY_TOKEN ?? 'spacode-tiktok-verify',
+    LINKEDIN_CLIENT_ID: process.env.LINKEDIN_CLIENT_ID ?? '',
+    LINKEDIN_CLIENT_SECRET: process.env.LINKEDIN_CLIENT_SECRET ?? '',
+    LINKEDIN_REDIRECT_URI:
+      process.env.LINKEDIN_REDIRECT_URI ?? 'http://localhost:3000/api/v1/social/callback/linkedin',
+    X_CLIENT_ID: process.env.X_CLIENT_ID ?? '',
+    X_CLIENT_SECRET: process.env.X_CLIENT_SECRET ?? '',
+    X_REDIRECT_URI: process.env.X_REDIRECT_URI ?? 'http://localhost:3000/api/v1/social/callback/twitter',
+    YOUTUBE_CLIENT_ID: process.env.YOUTUBE_CLIENT_ID ?? '',
+    YOUTUBE_CLIENT_SECRET: process.env.YOUTUBE_CLIENT_SECRET ?? '',
+    YOUTUBE_REDIRECT_URI:
+      process.env.YOUTUBE_REDIRECT_URI ?? 'http://localhost:3000/api/v1/social/callback/youtube',
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? '',
   };
 }

@@ -54,5 +54,11 @@ export function startCronJobs(): void {
     logger.info({ count }, 'Google sync cron tick');
   });
 
+  cron.schedule('0 * * * *', async () => {
+    const { enqueueEvergreenReposts } = await import('./workers/social-publish.worker.js');
+    const count = await enqueueEvergreenReposts();
+    if (count > 0) logger.info({ count }, 'Enqueued evergreen reposts');
+  });
+
   logger.info('Cron jobs scheduled');
 }

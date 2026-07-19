@@ -8,6 +8,11 @@ import { gatewayContext } from './middleware/gateway-context.js';
 import { marketingRouter } from './modules/marketing/marketing.router.js';
 import { contentItemsRouter } from './modules/content-items/content-items.router.js';
 import { websiteRouter, publicPagesRouter } from './modules/website/website.router.js';
+import { creativeImagesRouter } from './modules/creative-images/creative-images.router.js';
+import { creativeVideosRouter } from './modules/creative-videos/creative-videos.router.js';
+import { creativeScoringRouter } from './modules/creative-scoring/creative-scoring.router.js';
+import { competitorsRouter } from './modules/competitors/competitors.router.js';
+import { brandRouter } from './modules/brand/brand.router.js';
 import { getRedis, aiContentProgressChannel } from './lib/redis.js';
 import { prisma } from '@spacode/db';
 
@@ -34,6 +39,11 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/v1/businesses/:id/marketing', marketingRouter);
 app.use('/api/v1/businesses/:id/content-items', contentItemsRouter);
+app.use('/api/v1/businesses/:id/creative-images', creativeImagesRouter);
+app.use('/api/v1/businesses/:id/creative-videos', creativeVideosRouter);
+app.use('/api/v1/businesses/:id/content-items', creativeScoringRouter);
+app.use('/api/v1/businesses/:id/competitors', competitorsRouter);
+app.use('/api/v1/businesses/:id/brand', brandRouter);
 app.use('/api/v1/businesses/:id/website', websiteRouter);
 app.use('/p', publicPagesRouter);
 

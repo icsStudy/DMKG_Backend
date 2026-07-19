@@ -23,6 +23,9 @@ export interface UpdateContentItemDto {
   mediaUrl?: string;
   scheduledAt?: string | null;
   whatsappTemplateId?: string | null;
+  evergreenEnabled?: boolean;
+  evergreenIntervalDays?: number | null;
+  maxReposts?: number | null;
 }
 
 export interface MarketingPlanDto {
@@ -55,6 +58,10 @@ export interface ContentItemDto {
   publishedAt: string | null;
   socialPostId: string | null;
   metaAdCampaignId: string | null;
+  evergreenEnabled?: boolean;
+  evergreenIntervalDays?: number | null;
+  maxReposts?: number | null;
+  repostCount?: number;
   createdAt: string;
   updatedAt: string;
 }

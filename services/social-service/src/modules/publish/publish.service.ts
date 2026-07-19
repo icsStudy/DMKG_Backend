@@ -22,8 +22,9 @@ export async function publishPost(businessId: string, data: PublishPostDto) {
       businessId,
       contentItemId: contentItemId ?? undefined,
       content: data.content,
-      mediaUrl: data.mediaUrls?.[0],
+      mediaUrl: data.mediaUrl ?? data.mediaUrls?.[0],
       platforms,
+      firstComment: data.firstComment,
       status: isScheduled ? SocialPostStatus.SCHEDULED : SocialPostStatus.DRAFT,
       scheduledAt,
     },
@@ -44,7 +45,7 @@ export async function publishPost(businessId: string, data: PublishPostDto) {
       businessId,
       platforms,
       content: data.content,
-      mediaUrl: data.mediaUrls?.[0],
+      mediaUrl: data.mediaUrl ?? data.mediaUrls?.[0],
     });
     await prisma.socialPost.update({
       where: { id: post.id },

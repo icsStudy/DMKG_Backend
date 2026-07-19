@@ -73,3 +73,36 @@ webhooksPublicRouter.post(
     success(res, await svc.handleInboundWebhook(req.params.businessId, req.body, signature));
   }),
 );
+
+webhooksPublicRouter.get(
+  '/tiktok/leadgen',
+  asyncHandler(async (req, res) => {
+    const challenge = svc.verifyTikTokChallenge(
+      req.query['hub.mode'] as string,
+      req.query['hub.verify_token'] as string,
+      req.query['hub.challenge'] as string,
+    );
+    res.send(challenge);
+  }),
+);
+
+webhooksPublicRouter.post(
+  '/tiktok/leadgen',
+  asyncHandler(async (req, res) => {
+    success(res, await svc.handleTikTokLeadgen(req.body));
+  }),
+);
+
+webhooksPublicRouter.post(
+  '/linkedin/leadgen',
+  asyncHandler(async (req, res) => {
+    success(res, await svc.handleLinkedInLeadgen(req.body));
+  }),
+);
+
+webhooksPublicRouter.post(
+  '/meta/comments',
+  asyncHandler(async (req, res) => {
+    success(res, await svc.handleMetaComment(req.body));
+  }),
+);

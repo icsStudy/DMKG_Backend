@@ -22,6 +22,10 @@ export function toContentItemDto(
     publishedAt: item.publishedAt?.toISOString() ?? null,
     socialPostId: item.socialPost?.id ?? null,
     metaAdCampaignId: item.metaAdCampaign?.id ?? null,
+    evergreenEnabled: item.evergreenEnabled,
+    evergreenIntervalDays: item.evergreenIntervalDays,
+    maxReposts: item.maxReposts,
+    repostCount: item.repostCount,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
   };

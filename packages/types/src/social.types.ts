@@ -19,8 +19,10 @@ export interface PublishPostDto {
   content: string;
   platforms: Platform[];
   mediaUrls?: string[];
+  mediaUrl?: string;
   scheduledAt?: string;
   contentItemId?: string;
+  firstComment?: string;
 }
 
 export interface PublishProgressEvent {

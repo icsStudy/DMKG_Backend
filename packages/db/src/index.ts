@@ -27,6 +27,7 @@ export type {
   SocialPost,
   SocialConnection,
   AiVideoJob,
+  AiManualPostImage,
   AiWebsiteJob,
   MarketingPlan,
   ContentItem,
